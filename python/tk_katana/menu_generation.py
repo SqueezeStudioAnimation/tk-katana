@@ -1,3 +1,4 @@
+# coding: utf-8
 #
 # Copyright (c) 2013 Shotgun Software, Inc
 # ----------------------------------------------------
@@ -5,25 +6,43 @@
 import os
 import sys
 import unicodedata
+
 from Katana import QtGui, QtCore
 
+
 class MenuGenerator(object):
+    """
+    A Katana specific menu generator.
+    """
+
     def __init__(self, engine, menu_name):
+        """
+        Initializes a new menu generator.
+
+        :param engine: The currently-running engine.
+        :type engine: :class:`tank.platform.Engine`
+        :param menu_name: The name of the menu to be created.
+        """
         self._engine = engine
         self._menu_name = menu_name
-        self.root_menu=None
+        self.root_menu = None
+
+    @property
+    def engine(self):
+        """The currently-running engine."""
+        return self._engine
+
+    @property
+    def menu_name(self):
+        """The name of the menu to be generated."""
+        return self._menu_name
 
     def create_menu(self):
-        """ Create the Shotgun Menu """
+        """
+        Create the Shotgun Menu.
+        """
         # Get the shotgun menu
-        self.root_menu = self.__get_or_create_root_menu( self._menu_name )
-        self.populate_menu()
-
-    def populate_menu(self):
-        '''
-        Populate the menu with contents defined by the current context.
-        '''
-        self.root_menu.clear()
+        self.root_menu = self.get_or_create_root_menu(self.menu_name)
 
         # 'surfacing, Assets chair' menu
         menu_handle = self.root_menu
@@ -34,14 +53,14 @@ class MenuGenerator(object):
 
         # now enumerate all items and create menu objects for them
         menu_items = []
-        for (cmd_name, cmd_details) in self._engine.commands.items():
-             menu_items.append( AppCommand(cmd_name, cmd_details) )
+        for (cmd_name, cmd_details) in self.engine.commands.items():
+             menu_items.append(AppCommand(cmd_name, cmd_details))
 
         # sort list of commands in name order
         menu_items.sort(key=lambda x: x.name)
 
         # now add favourites
-        for fav in self._engine.get_setting("menu_favourites"):
+        for fav in self.engine.get_setting("menu_favourites"):
             app_instance_name = fav["app_instance"]
             menu_name = fav["name"]
 
@@ -54,7 +73,6 @@ class MenuGenerator(object):
                      cmd.favourite = True
 
         menu_handle.addSeparator()
-
 
         # now go through all of the menu items.
         # separate them out into various sections
@@ -78,86 +96,79 @@ class MenuGenerator(object):
         # now add all apps to main menu
         self._add_app_menu(commands_by_app, menu_handle)
 
-
     @classmethod
-    def __get_or_create_root_menu(cls, menu_name):
-        '''
+    def get_or_create_root_menu(cls, menu_name):
+        """
         Attempts to find an existing menu of the specified title. If it can't be
         found, it creates one.
-        '''
+        """
         # Get the "main menu" (the bar of menus)
         main_menu = cls.__get_katana_main_menu()
         if not main_menu:
             return
+
         # Attempt to find existing menu
         for menu in main_menu.children():
             if type(menu).__name__ == "QMenu" and menu.title() == menu_name:
                 return menu
+
         # Otherwise, create a new menu
         menu = QtGui.QMenu(menu_name, main_menu)
         main_menu.addMenu(menu)
         return menu
 
-
     @classmethod
     def __get_katana_main_menu(cls):
-
         layoutsMenus = [x for x in QtGui.qApp.topLevelWidgets() if type(x).__name__ == 'LayoutsMenu']
-
         if len(layoutsMenus) != 1:
             return
 
         mainMenu = layoutsMenus[0].parent()
-
         return mainMenu
 
     def destroy_menu(self):
-
-        # find our Shotgun menu and clear it
-        for mh in self.root_menu.items():
-            if mh.name() == self._menu_name:
-                mh.clearMenu()
-        # pass
+        """
+        Destroys the Shotgun menu.
+        """
+        if self.root_menu is not None:
+            self.root_menu.clear()
 
     ##########################################################################################
     # context menu and UI
 
     def _add_context_menu(self, menu_handle):
         """
-        Adds a context menu which displays the current context
+        Adds a context menu which displays the current context.
         """
-
-        ctx = self._engine.context
+        ctx = self.engine.context
         ctx_name = str(ctx)
 
         # create the menu object
         ctx_menu = menu_handle.addMenu(ctx_name)
 
-        action = QtGui.QAction('Jump to Shotgun', self.root_menu,triggered=self._jump_to_sg)
+        action = QtGui.QAction('Jump to Shotgun', self.root_menu, triggered=self._jump_to_sg)
         ctx_menu.addAction(action)
 
-        action = QtGui.QAction('Jump to File System', self.root_menu,triggered=self._jump_to_fs)
+        action = QtGui.QAction('Jump to File System', self.root_menu, triggered=self._jump_to_fs)
         ctx_menu.addAction(action)
 
         ctx_menu.addSeparator()
 
         return ctx_menu
 
-
     def _jump_to_sg(self):
         """
-        Jump to shotgun, launch web browser
+        Jump to Shotgun, launch web browser.
         """
-        url = self._engine.context.shotgun_url
+        url = self.engine.context.shotgun_url
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
 
     def _jump_to_fs(self):
-
         """
-        Jump from context to FS
+        Jump from context to FS.
         """
         # launch one window for each location on disk
-        paths = self._engine.context.filesystem_locations
+        paths = self.engine.context.filesystem_locations
         for disk_location in paths:
 
             # get the setting
@@ -175,19 +186,16 @@ class MenuGenerator(object):
 
             exit_code = os.system(cmd)
             if exit_code != 0:
-                self._engine.log_error("Failed to launch '%s'!" % cmd)
-
+                self.engine.log_error("Failed to launch '%s'!" % cmd)
 
     ##########################################################################################
     # app menus
-
 
     def _add_app_menu(self, commands_by_app, menu_handle):
         """
         Add all apps to the main menu, process them one by one.
         """
         for app_name in sorted(commands_by_app.keys()):
-
 
             if len(commands_by_app[app_name]) > 1:
                 # more than one menu entry fort his app
@@ -224,7 +232,6 @@ class AppCommand(object):
         self.callback = command_dict["callback"]
         self.favourite = False
 
-
     def get_app_name(self):
         """
         Returns the name of the app that this command belongs to
@@ -253,7 +260,7 @@ class AppCommand(object):
 
     def get_documentation_url_str(self):
         """
-        Returns the documentation as a str
+        Returns the documentation as a str.
         """
         if "app" in self.properties:
             app = self.properties["app"]
@@ -267,29 +274,40 @@ class AppCommand(object):
 
     def get_type(self):
         """
-        returns the command type. Returns node, custom_pane or default
+        Returns the command type (node, custom_pane or default).
         """
         return self.properties.get("type", "default")
 
-    def do_add_command(self,menu,name,cmd,hot_key=None,icon=None):
-        # new_menu = menu.addMenu(name)
+    def do_add_command(self, menu, name, cmd, hot_key=None, icon=None):
+        # TODO add hot key
 
-        #TODO add hot key
+        # From the PyQt documentation:
+        # PySide.QtGui.QAction.triggered([checked = false])
+        # Parameters:    checked – PySide.QtCore.bool
+        # If your callback signature is cmd(*args), the signal sent will have an arg, False, which corresponds
+        # to the checked state of the menu item. But if it's cmd(), then it won't.
+        # since the apps registered commands are defined as wrappers, callback_wrapper(*args, **kwargs)
+        #  (see /rdo/rodeo/repositories/tank/studio/install/core/python/tank/platform/engine.py,
+        # register_command function), they will pass the False argument to the callbacks registered by the
+        # apps, for example for tk-multi-contextSwitcher:
+        # menu_callback = lambda : app_payload.contextSwitcher.show_dialog(self)
+        # this will fail since the callback does not take any arguments.
+        # By "wrapping the wrapper" with this lambda, the function attached to triggered has no args and
+        # everything works.
+        cb = lambda: cmd()
         if hot_key:
-            action = QtGui.QAction(name, menu,triggered=cmd,icon=icon)
+            action = QtGui.QAction(name, menu, triggered=cb, icon=icon)
         else:
-            new_icon=None
             if icon:
-                new_icon=QtGui.QIcon(icon)
-                action = QtGui.QAction(name, menu,triggered=cmd,icon=new_icon)
+                new_icon = QtGui.QIcon(icon)
+                action = QtGui.QAction(name, menu, triggered=cb, icon=new_icon)
             else:
-                action = QtGui.QAction(name, menu,triggered=cmd)
-
+                action = QtGui.QAction(name, menu, triggered=cb)
         menu.addAction(action)
 
     def add_command_to_menu(self, menu):
         """
-        Adds an app command to the menu
+        Adds an app command to the menu.
         """
         # std shotgun menu
         icon = self.properties.get("icon")

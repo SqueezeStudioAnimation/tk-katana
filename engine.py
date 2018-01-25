@@ -56,38 +56,45 @@ class KatanaEngine(tank.platform.Engine):
             import traceback
             self.log_warning("Error setting up PyQt. PyQt based UI support "
                              "will not be available: %s" % e)
-            self.log_debug(traceback.format_exc())    
-            
+            self.log_debug(traceback.format_exc())
+
         return base
 
-    def add_katana_menu(self, objectHash=None):
+    def add_katana_menu(self, **kwargs):
+        self.log_info("Start creating Shotgun menu.")
 
         menu_name = "Shotgun"
         if self.get_setting("use_sgtk_as_menu_name", False):
             menu_name = "Sgtk"
-        tk_katana = self.import_module("tk_katana")
-        self.katana_log.info("Start creating shotgun menu.")
-        try:
-            self._menu_generator = tk_katana.MenuGenerator(self, menu_name)
-            self._menu_generator.create_menu()
-        except:
-            traceback.print_exc()
 
-    def update_katana_menu(self):
-        '''
-        Refresh the Katana menu for the current context.
-        '''
-        self.katana_log.info("Updating shotgun menu.")
-        self._menu_generator.populate_menu()
+        tk_katana = self.import_module("tk_katana")
+        self._menu_generator = tk_katana.MenuGenerator(self, menu_name)
+        self._menu_generator.create_menu()
+
+    def pre_app_init(self):
+        """
+        Called at startup.
+        """
+        tk_katana = self.import_module("tk_katana")
+
 
     def post_app_init(self):
-        Callbacks.addCallback(Callbacks.Type.onStartupComplete, self.add_katana_menu)
+        if self.has_ui:
+            try:
+                self.add_katana_menu()
+            except AttributeError:
+                # Katana is probably not fully started and the main menu is not available yet
+                Callbacks.addCallback(Callbacks.Type.onStartupComplete, self.add_katana_menu)
+            except:
+                traceback.print_exc()
 
     def destroy_engine(self):
         self.log_debug("%s: Destroying..." % self)
-
-    def _display_message(self, msg):
-        self.log_info(msg)
+        if self.has_ui:
+            try:
+                self._menu_generator.destroy_menu()
+            except:
+                traceback.print_exc()
 
     def launch_command(self, cmd_id):
         callback = self._callback_map.get(cmd_id)
@@ -96,16 +103,18 @@ class KatanaEngine(tank.platform.Engine):
             return
         callback()
 
+    #####################################################################################
+    # Logging
+
     def log_debug(self, msg):
         if self.get_setting("debug_logging", False):
             print "Shotgun Debug: %s" % msg
 
     def log_info(self, msg):
-        print "Shotgun: %s" % msg
-
-    def log_error(self, msg):
-        self._display_message(msg)
-        print "Shotgun Error: %s" % msg
+        print "Shotgun Info: %s" % msg
 
     def log_warning(self, msg):
-        print str(msg)
+        print "Shotgun Warning: %s" % msg
+
+    def log_error(self, msg):
+        print "Shotgun Error: %s" % msg
