@@ -45,6 +45,8 @@ class KatanaEngine(tank.platform.Engine):
             QtCore.Signal = QtCore.pyqtSignal
             QtCore.Slot = QtCore.pyqtSlot
             QtCore.Property = QtCore.pyqtProperty
+            QtCore.__version__ = QtCore.qVersion()
+
             base["qt_core"] = QtCore
             base["qt_gui"] = QtGui
             base["dialog_base"] = QtGui.QDialog
