@@ -105,6 +105,19 @@ class KatanaEngine(tank.platform.Engine):
             return
         callback()
 
+    @property
+    def has_ui(self):
+        """
+        Indicates that the host application that the engine is connected to has a UI enabled.
+        This always returns False for some engines (such as the shell engine) and may vary
+        for some engines, depending if the host application for example is in batch mode or
+        UI mode.
+        :returns: boolean value indicating if a UI currently exists
+        """
+        # http://help.thefoundry.co.uk/katana/2.5/Default.html#tg/launch_modes/querying_launch_mode.html?Highlight=batch
+        from Katana import QtGui
+        return QtGui.qApp.type() == 1
+
     #####################################################################################
     # Logging
 
